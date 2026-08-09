@@ -75,7 +75,7 @@ class TuyaSpecificCluster extends Cluster {
   }
 
   // Declare the dynamically created command method from COMMANDS
-  datapoint!: (args: {
+  declare datapoint: (args: {
     status: number;
     transid: number;
     dp: number;

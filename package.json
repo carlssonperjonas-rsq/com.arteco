@@ -1,6 +1,6 @@
 {
-  "name": "com.arteco",
-  "version": "1.0.0",
+  "name": "com.arteco.zs301z",
+  "version": "1.0.1",
   "scripts": {
     "build": "npx --no-install tsc",
     "lint": "npx --no-install eslint --ext .js,.ts --ignore-path .gitignore --ignore-pattern \"types/**\" --ignore-pattern \".homeybuild/**\" .",

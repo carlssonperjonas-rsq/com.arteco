@@ -3,7 +3,7 @@
 import { ZigBeeDevice } from 'homey-zigbeedriver';
 import { CLUSTER } from 'zigbee-clusters';
 
-import { TuyaDataTypes, TUYA_CLUSTER_ID } from '../../lib/TuyaCluster';
+import { TuyaDataTypes, TUYA_CLUSTER_ID, TUYA_CMD } from '../../lib/TuyaCluster';
 import { decodeTuyaDpValuesFromZclFrame } from '../../lib/tuyaFrame';
 import { clampPercent, rawTemperatureTimes10ToCelsius } from '../../lib/utils';
 import {
@@ -37,8 +37,17 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
     }
     this.endpoint1 = endpoint;
 
-    if (!this.hasCapability('measure_soil_fertility')) {
+    const manufacturerName = (this as any).node?.manufacturerName;
+    const supportsSoilFertility = ![
+      '_TZE284_0ints6wl',
+      '_TZE2841000000_0ints6wl',
+    ].includes(manufacturerName);
+
+    if (supportsSoilFertility && !this.hasCapability('measure_soil_fertility')) {
       await this.addCapability('measure_soil_fertility').catch(this.error);
+    } else if (!supportsSoilFertility && this.hasCapability('measure_soil_fertility')) {
+      this.log(`Removing unsupported soil fertility capability for ${manufacturerName}`);
+      await this.removeCapability('measure_soil_fertility').catch(this.error);
     }
 
     const isSleepy = this.isDeviceSleepy();
@@ -70,6 +79,10 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
     }
 
     this.registerRawReportHandler(zclNode);
+
+    if (this.tuyaCluster) {
+      this.sendDataQuery().catch(this.error);
+    }
 
     if (isSleepy) {
       this.log('Device is sleepy - will apply settings and read battery when device wakes up');
@@ -243,6 +256,11 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
 
       case 'battery':
         if (typeof value === 'number') {
+          if (datatype === TuyaDataTypes.ENUM) {
+            const batteryState = ['low', 'middle', 'high'][value] ?? `unknown (${value})`;
+            this.log(`Battery state from Tuya DP 14: ${batteryState}; keeping percentage from PowerConfiguration`);
+            break;
+          }
           const battery = clampPercent(value);
           this.log(`Setting battery to ${battery}%`);
           if (this.hasCapability('measure_battery')) {
@@ -299,6 +317,18 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
     } catch (err) {
       this.log('Could not read battery (device may be sleeping):', err);
     }
+  }
+
+  private async sendDataQuery(): Promise<void> {
+    if (!this.tuyaCluster) return;
+
+    this.log('Sending Tuya dataQuery for current datapoint values');
+    await this.tuyaCluster.sendFrame({
+      frameControl: ['clusterSpecific', 'disableDefaultResponse'],
+      cmdId: TUYA_CMD.DATA_QUERY,
+      data: Buffer.alloc(0),
+    });
+    this.log('Sent Tuya dataQuery');
   }
 
   async onSettings({ oldSettings, newSettings, changedKeys }: {
