@@ -5,5 +5,9 @@
   "1.0.1": {
     "en": "Fixed wateralarm",
     "no": "Fikset vannalarmen"
+  },
+  "1.0.2": {
+    "en": "Reliably applies the configured reporting interval when battery-powered sensors wake up.",
+    "no": "Bruker det konfigurerte rapporteringsintervallet pålitelig når batteridrevne sensorer våkner."
   }
 }

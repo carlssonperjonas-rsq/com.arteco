@@ -52,6 +52,10 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
 
     const isSleepy = this.isDeviceSleepy();
     this.log(`Device is ${isSleepy ? 'sleepy (battery-powered)' : 'always-on'}`);
+    if (isSleepy) {
+      this.pendingSettingsApply = true;
+      this.log('Device settings will be synchronized on the next wake-up');
+    }
 
     const isFirstInit = typeof (this as any).isFirstInit === 'function' ? (this as any).isFirstInit() : false;
     if (isFirstInit) {
@@ -80,8 +84,8 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
 
     this.registerRawReportHandler(zclNode);
 
-    if (this.tuyaCluster) {
-      this.sendDataQuery().catch(this.error);
+    if (this.tuyaCluster && !isSleepy) {
+      await this.sendDataQuery().catch(this.error);
     }
 
     if (isSleepy) {
@@ -417,8 +421,13 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
 
     if (this.pendingSettingsApply) {
       this.log('Applying pending user settings...');
-      await this.applyDeviceSettings().catch(this.error);
-      this.pendingSettingsApply = false;
+      try {
+        await this.applyDeviceSettings();
+        this.pendingSettingsApply = false;
+        this.log('Pending device settings applied successfully');
+      } catch (err) {
+        this.error('Failed to apply pending device settings; will retry on next wake-up:', err);
+      }
     }
 
     if (this.endpoint1) {
