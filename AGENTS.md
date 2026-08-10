@@ -172,8 +172,8 @@ Tuya devices use a proprietary protocol on cluster `0xEF00` (61184).
 | 14  | Battery                    | VALUE | battery        | 0–100 %                     |
 | 101 | Air Humidity               | VALUE | humidity       | 0–100 %                     |
 | 102 | Illuminance                | VALUE | illuminance    | lux                         |
-| 103 | Soil Sampling Interval     | VALUE | setting (W)    | 5–3600 s                    |
-| 104 | Soil Calibration           | VALUE | setting (W)    | -30 to +30                  |
+| 103 | Soil Calibration           | VALUE | setting (W)    | -30 to +30                  |
+| 104 | Reporting Interval         | VALUE | setting (W)    | 30–1200 s                   |
 | 105 | Humidity Calibration       | VALUE | setting (W)    | -30 to +30                  |
 | 106 | Illuminance Calibration    | VALUE | setting        | read-only                   |
 | 107 | Temperature Calibration    | VALUE | setting (W)    | -20 to +20 (tenths of °C)   |

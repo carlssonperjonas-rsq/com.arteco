@@ -24,11 +24,11 @@ test('clampHumidityCalibration rounds to integer', () => {
   assert.equal(clampHumidityCalibration(-5.2), -5);
 });
 
-test('clampSamplingSeconds clamps to 5..3600', () => {
-  assert.equal(clampSamplingSeconds(5), 5);
-  assert.equal(clampSamplingSeconds(3600), 3600);
-  assert.equal(clampSamplingSeconds(1), 5);
-  assert.equal(clampSamplingSeconds(9999), 3600);
+test('clampSamplingSeconds clamps to the device range 30..1200', () => {
+  assert.equal(clampSamplingSeconds(30), 30);
+  assert.equal(clampSamplingSeconds(1200), 1200);
+  assert.equal(clampSamplingSeconds(1), 30);
+  assert.equal(clampSamplingSeconds(9999), 1200);
 });
 
 test('clampSoilCalibration clamps to -30..30', () => {

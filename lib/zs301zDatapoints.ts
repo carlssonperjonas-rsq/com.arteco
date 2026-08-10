@@ -16,8 +16,8 @@ export const DP_HANDLERS: Record<number, { handler: DpHandler; divideBy?: number
   14:  { handler: 'battery' },
   101: { handler: 'humidity' },
   102: { handler: 'illuminance' },
-  103: { handler: 'setting' },   // soil_sampling
-  104: { handler: 'setting' },   // soil_calibration
+  103: { handler: 'setting' },   // soil_calibration
+  104: { handler: 'setting' },   // soil_sampling/report interval
   105: { handler: 'setting' },   // humidity_calibration
   106: { handler: 'setting' },   // illuminance_calibration
   107: { handler: 'setting' },   // temperature_calibration
@@ -29,8 +29,8 @@ export const DP_HANDLERS: Record<number, { handler: DpHandler; divideBy?: number
 };
 
 export const DP_WRITE = {
-  SOIL_SAMPLING: 103,
-  SOIL_CALIBRATION: 104,
+  SOIL_CALIBRATION: 103,
+  SOIL_SAMPLING: 104,
   HUMIDITY_CALIBRATION: 105,
   TEMP_CALIBRATION: 107,
   SOIL_WARNING: 110,

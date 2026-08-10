@@ -57,7 +57,7 @@
         },
         "soil_sampling": {
           "label": "Soil Sampling Interval",
-          "hint": "How often the sensor measures soil moisture (5–3600 seconds). Takes effect on next report."
+          "hint": "How often the sensor reports measurements (30–1200 seconds). Takes effect on next report."
         },
         "soil_warning": {
           "label": "Soil Dryness Threshold",

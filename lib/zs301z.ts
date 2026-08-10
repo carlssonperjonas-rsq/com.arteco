@@ -3,7 +3,7 @@
 import { clampNumber, clampInt } from './utils';
 
 export function clampSamplingSeconds(seconds: number): number {
-  return clampInt(seconds, 5, 3600);
+  return clampInt(seconds, 30, 1200);
 }
 
 export function clampHumidityCalibration(offset: number): number {

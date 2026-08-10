@@ -15,8 +15,14 @@ Module._load = function loadWithHomeyStub(request, parent, isMain) {
   return originalLoad.call(this, request, parent, isMain);
 };
 const ZS301ZDevice = require('../.homeybuild/drivers/zs-301z/device');
+const { DP_WRITE } = require('../.homeybuild/lib/zs301zDatapoints');
 
 Module._load = originalLoad;
+
+test('ZS-301Z writes calibration to DP 103 and report interval to DP 104', () => {
+  assert.equal(DP_WRITE.SOIL_CALIBRATION, 103);
+  assert.equal(DP_WRITE.SOIL_SAMPLING, 104);
+});
 
 function createDeviceHarness({ sleepy }) {
   const calls = {

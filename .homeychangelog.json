@@ -17,5 +17,9 @@
   "1.0.4": {
     "en": "Waits for the Tuya radio to become ready before synchronizing settings after wake-up.",
     "no": "Venter til Tuya-radioen er klar før innstillingene synkroniseres etter oppvåkning."
+  },
+  "1.0.5": {
+    "en": "Corrects the soil calibration and reporting interval datapoints for reliable periodic updates.",
+    "no": "Retter datapunktene for jordkalibrering og rapporteringsintervall for pålitelige periodiske oppdateringer."
   }
 }

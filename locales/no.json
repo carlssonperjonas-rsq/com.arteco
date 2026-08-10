@@ -57,7 +57,7 @@
         },
         "soil_sampling": {
           "label": "Jordmålingsintervall",
-          "hint": "Hvor ofte sensoren måler jordfuktighet (5–3600 sekunder). Trer i kraft ved neste rapport."
+          "hint": "Hvor ofte sensoren rapporterer målinger (30–1200 sekunder). Trer i kraft ved neste rapport."
         },
         "soil_warning": {
           "label": "Tørkegrense for jord",
