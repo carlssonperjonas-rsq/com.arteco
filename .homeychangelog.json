@@ -25,5 +25,9 @@
   "1.0.6": {
     "en": "Queries current sensor values on wake-up with a battery-friendly ten-minute cooldown.",
     "no": "Henter aktuelle sensorverdier ved oppvåkning med en batterivennlig sperre på ti minutter."
+  },
+  "1.0.7": {
+    "en": "Adds one delayed follow-up query per wake cycle for climate and light datapoints.",
+    "no": "Legger til én forsinket oppfølgingsforespørsel per oppvåkningssyklus for klima- og lysverdier."
   }
 }

@@ -131,7 +131,8 @@ Battery-powered Zigbee devices sleep 99% of the time to conserve power and canno
 - Implement a 5-second debounce to prevent duplicate wake processing.
 - Never call `sendDataQuery()` from the generic/raw-frame wake handler — that
   causes response loops. A real `onEndDeviceAnnounce()` may issue one guarded
-  query with a long cooldown.
+  two-stage query with a long cooldown. The follow-up query must stay delayed
+  and bounded so response frames cannot create a loop.
 - Only push settings when the user has changed them (`pendingSettingsApply` flag).
 
 ### Tuya Protocol

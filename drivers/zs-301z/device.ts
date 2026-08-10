@@ -386,9 +386,13 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
     const DATA_QUERY_COOLDOWN_MS = 10 * 60 * 1000;
     if (this.tuyaCluster && now - this.lastAnnounceDataQueryAt >= DATA_QUERY_COOLDOWN_MS) {
       this.lastAnnounceDataQueryAt = now;
-      await this.sendDataQuery().catch((error) => {
+      try {
+        await this.sendDataQuery();
+        await this.waitForFollowupDataQuery();
+        await this.sendDataQuery();
+      } catch (error) {
         this.error('Failed to query current datapoints after device announce:', error);
-      });
+      }
     }
     await this.onDeviceAwake();
   }
@@ -396,6 +400,11 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
   private async waitForTuyaRadioReady(): Promise<void> {
     const TUYA_RADIO_READY_DELAY_MS = 2500;
     await new Promise((resolve) => setTimeout(resolve, TUYA_RADIO_READY_DELAY_MS));
+  }
+
+  private async waitForFollowupDataQuery(): Promise<void> {
+    const FOLLOWUP_QUERY_DELAY_MS = 4000;
+    await new Promise((resolve) => setTimeout(resolve, FOLLOWUP_QUERY_DELAY_MS));
   }
 
   private async configureMagicPacket(zclNode: any): Promise<void> {

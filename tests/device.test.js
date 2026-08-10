@@ -74,6 +74,9 @@ function createDeviceHarness({ sleepy }) {
     async waitForTuyaRadioReady() {
       return undefined;
     },
+    async waitForFollowupDataQuery() {
+      return undefined;
+    },
   };
 
   const zclNode = {
@@ -157,7 +160,7 @@ test('concurrent wake-up handling does not start a second settings sync', async 
   await firstWake;
 });
 
-test('end-device announce waits, queries current data, then handles wake-up', async () => {
+test('end-device announce sends a guarded two-stage data query before wake handling', async () => {
   const { calls, device } = createDeviceHarness({ sleepy: true });
   device.tuyaCluster = {};
   const events = [];
@@ -171,11 +174,20 @@ test('end-device announce waits, queries current data, then handles wake-up', as
     calls.sendDataQuery += 1;
     events.push('data-query');
   };
+  device.waitForFollowupDataQuery = async () => {
+    events.push('follow-up-wait');
+  };
 
   await ZS301ZDevice.prototype.onEndDeviceAnnounce.call(device);
 
-  assert.deepEqual(events, ['radio-ready', 'data-query', 'wake-handled']);
-  assert.equal(calls.sendDataQuery, 1);
+  assert.deepEqual(events, [
+    'radio-ready',
+    'data-query',
+    'follow-up-wait',
+    'data-query',
+    'wake-handled',
+  ]);
+  assert.equal(calls.sendDataQuery, 2);
 });
 
 test('repeated end-device announces query at most once per ten minutes', async () => {
