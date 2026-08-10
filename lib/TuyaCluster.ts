@@ -17,6 +17,7 @@ const TuyaDataTypes = {
 // Tuya protocol command IDs
 export const TUYA_CMD = {
   DATA_QUERY: 0x03,
+  MCU_GATEWAY_CONNECTION_STATUS: 0x25,
 } as const;
 
 // Tuya magic attribute for waking devices

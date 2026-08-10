@@ -123,23 +123,34 @@ Battery-powered Zigbee devices sleep 99% of the time to conserve power and canno
    ```typescript
    const isFirstInit = typeof this.isFirstInit === 'function' ? this.isFirstInit() : false;
    ```
-   Only send the magic packet on first init.
+   Apply user settings only on first init or after an actual settings change.
+   For sleepy Tuya devices, queue the full magic packet until the next real
+   `onEndDeviceAnnounce()` so attribute `0xFFFE` is sent while the radio is awake.
 
 ### Wake Handler Best Practices
 
-- Use a centralized `onDeviceAwake()` called from multiple detection points.
+- Use a centralized `onDeviceAwake()` for real announce events.
 - Implement a 5-second debounce to prevent duplicate wake processing.
 - Never call `sendDataQuery()` from the generic/raw-frame wake handler — that
-  causes response loops. A real `onEndDeviceAnnounce()` may issue one guarded
-  two-stage query with a long cooldown. The follow-up query must stay delayed
-  and bounded so response frames cannot create a loop.
+  causes response loops. A real `onEndDeviceAnnounce()` should issue one guarded
+  query immediately: this sensor's receive window closes in well under 2.5
+  seconds. Keep a long cooldown so repeated announces do not drain the battery.
+- If a manufacturer-specific datapoint migration is pending, write settings
+  before the guarded query and magic packet. The sampling datapoint must be the
+  first write while the sensor's radio is awake.
+- Raw Tuya frames should normally only be decoded and published; do not start
+  battery reads or data queries from the raw-frame handler. One bounded
+  exception is allowed: a previously queued settings migration may be sent once
+  because the incoming frame proves that the sleepy device radio is awake.
 - Only push settings when the user has changed them (`pendingSettingsApply` flag).
 
 ### Tuya Protocol
 
 Tuya devices use a proprietary protocol on cluster `0xEF00` (61184).
 
-1. **Magic Packet**: Read Basic cluster attributes to trigger Tuya reporting cycle. Only on first pairing.
+1. **Magic Packet**: Read the standard Basic attributes plus `0xFFFE` in one raw
+   global Read Attributes frame. For sleepy devices, send it on the next real
+   announce while the radio is awake.
 
 2. **dataQuery Command (0x03)**: Requests device to report all current datapoint values:
    ```typescript
@@ -166,7 +177,7 @@ Tuya devices use a proprietary protocol on cluster `0xEF00` (61184).
    | 0x04 | ENUM   | 1 byte |
    | 0x05 | BITMAP | variable |
 
-## ZS-301Z Datapoints
+## ZS-301Z / ZS-300Z Datapoints
 
 | DP  | Name                       | Type  | Handler        | Notes                       |
 |-----|----------------------------|-------|----------------|-----------------------------|
@@ -175,13 +186,18 @@ Tuya devices use a proprietary protocol on cluster `0xEF00` (61184).
 | 14  | Battery                    | VALUE | battery        | 0–100 %                     |
 | 101 | Air Humidity               | VALUE | humidity       | 0–100 %                     |
 | 102 | Illuminance                | VALUE | illuminance    | lux                         |
-| 103 | Soil Calibration           | VALUE | setting (W)    | -30 to +30                  |
-| 104 | Reporting Interval         | VALUE | setting (W)    | 30–1200 s                   |
+| 103 | Reporting Interval         | VALUE | setting (W)    | 5–3600 s on ZS-300Z/ZS-304Z |
+| 104 | Soil Calibration           | VALUE | setting (W)    | -30 to +30 on ZS-300Z/ZS-304Z |
 | 105 | Humidity Calibration       | VALUE | setting (W)    | -30 to +30                  |
-| 106 | Illuminance Calibration    | VALUE | setting        | read-only                   |
+| 106 | Illuminance Calibration    | VALUE | setting (W)    | -1000 to +1000 lx           |
 | 107 | Temperature Calibration    | VALUE | setting (W)    | -20 to +20 (tenths of °C)   |
 | 110 | Soil Warning Threshold     | VALUE | setting (W)    | 0–100 %                     |
 | 111 | Water Warning              | BOOL  | waterWarning   | 0=OK, 1=Alarm               |
+
+The exact `_TZE284*_0ints6wl` family follows Zigbee2MQTT's ZS-300Z/ZS-304Z
+mapping above. The original `_TZE284_o9ofysmo` and `_TZE284_xc3vwx5a`
+ZS-301Z variants use DP 103 for soil calibration and DP 104 for the 30–1200
+second report interval. Always select writable datapoints by manufacturer name.
 | 112 | Soil Fertility             | VALUE | soilFertility  | µS/cm, 0–2000               |
 | 114 | Fertility Warning Setting  | VALUE | setting        | read-only                   |
 | 115 | Fertility Warning          | BOOL  | setting        | read-only                   |

@@ -29,5 +29,17 @@
   "1.0.7": {
     "en": "Adds one delayed follow-up query per wake cycle for climate and light datapoints.",
     "no": "Legger til én forsinket oppfølgingsforespørsel per oppvåkningssyklus for klima- og lysverdier."
+  },
+  "1.0.8": {
+    "en": "Queries sleepy sensors immediately on announce and sends the complete Tuya initialization packet including attribute 0xFFFE.",
+    "no": "Henter data fra sovende sensorer umiddelbart ved oppvåkning og sender hele Tuya-initialiseringspakken med attributt 0xFFFE."
+  },
+  "1.0.9": {
+    "en": "Corrects the ZS-300Z/ZS-304Z datapoint map for 0ints6wl, adds illuminance calibration, and answers Tuya gateway status requests.",
+    "no": "Retter ZS-300Z/ZS-304Z-datapunktkartet for 0ints6wl, legger til lysstyrkekalibrering og svarer på Tuya-forespørsler om gatewaystatus."
+  },
+  "1.0.10": {
+    "en": "Prioritizes the corrected sampling datapoint as the first command during a sleepy sensor wake-up.",
+    "no": "Prioriterer det korrigerte datapunktet for måleintervall som første kommando når en sovende sensor våkner."
   }
 }

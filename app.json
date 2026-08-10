@@ -1,7 +1,7 @@
 {
   "_comment": "This file is generated. Please edit .homeycompose/app.json instead.",
   "id": "com.arteco.zs301z",
-  "version": "1.0.7",
+  "version": "1.0.10",
   "compatibility": ">=12.4.0",
   "sdk": 3,
   "platforms": [
@@ -191,15 +191,34 @@
             "no": "Jordmålingsintervall"
           },
           "hint": {
-            "en": "How often the sensor reports measurements (30-1200 seconds)",
-            "no": "Hvor ofte sensoren rapporterer målinger (30–1200 sekunder)"
+            "en": "How often the sensor reports measurements (5-3600 seconds on ZS-300Z/ZS-304Z)",
+            "no": "Hvor ofte sensoren rapporterer målinger (5–3600 sekunder på ZS-300Z/ZS-304Z)"
           },
-          "min": 30,
-          "max": 1200,
+          "min": 5,
+          "max": 3600,
           "value": 600,
           "units": {
             "en": "seconds",
             "no": "sekunder"
+          }
+        },
+        {
+          "id": "illuminance_calibration",
+          "type": "number",
+          "label": {
+            "en": "Illuminance Calibration",
+            "no": "Lysstyrkekalibrering"
+          },
+          "hint": {
+            "en": "Offset to adjust illuminance readings (-1000 to +1000 lx)",
+            "no": "Avvik for å justere lysstyrkeavlesning (-1000 til +1000 lx)"
+          },
+          "min": -1000,
+          "max": 1000,
+          "value": 0,
+          "units": {
+            "en": "lx",
+            "no": "lx"
           }
         },
         {
