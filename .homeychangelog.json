@@ -21,5 +21,9 @@
   "1.0.5": {
     "en": "Corrects the soil calibration and reporting interval datapoints for reliable periodic updates.",
     "no": "Retter datapunktene for jordkalibrering og rapporteringsintervall for pålitelige periodiske oppdateringer."
+  },
+  "1.0.6": {
+    "en": "Queries current sensor values on wake-up with a battery-friendly ten-minute cooldown.",
+    "no": "Henter aktuelle sensorverdier ved oppvåkning med en batterivennlig sperre på ti minutter."
   }
 }

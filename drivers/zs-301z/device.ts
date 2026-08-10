@@ -21,6 +21,7 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
   private pendingSettingsApply = false;
   private endpoint1: any = null;
   private lastWakeHandledAt = 0;
+  private lastAnnounceDataQueryAt = 0;
   private wakeHandling = false;
 
   async onNodeInit({ zclNode }: { zclNode: any }) {
@@ -381,6 +382,14 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
   async onEndDeviceAnnounce(): Promise<void> {
     this.log('Device announced (woke up from sleep)');
     await this.waitForTuyaRadioReady();
+    const now = Date.now();
+    const DATA_QUERY_COOLDOWN_MS = 10 * 60 * 1000;
+    if (this.tuyaCluster && now - this.lastAnnounceDataQueryAt >= DATA_QUERY_COOLDOWN_MS) {
+      this.lastAnnounceDataQueryAt = now;
+      await this.sendDataQuery().catch((error) => {
+        this.error('Failed to query current datapoints after device announce:', error);
+      });
+    }
     await this.onDeviceAwake();
   }
 

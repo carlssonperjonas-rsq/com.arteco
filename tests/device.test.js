@@ -43,6 +43,7 @@ function createDeviceHarness({ sleepy }) {
     pendingSettingsApply: false,
     endpoint1: null,
     lastWakeHandledAt: 0,
+    lastAnnounceDataQueryAt: 0,
     wakeHandling: false,
     tuyaCluster: null,
     log() {},
@@ -156,8 +157,9 @@ test('concurrent wake-up handling does not start a second settings sync', async 
   await firstWake;
 });
 
-test('end-device announce waits for the Tuya radio before handling wake-up', async () => {
-  const { device } = createDeviceHarness({ sleepy: true });
+test('end-device announce waits, queries current data, then handles wake-up', async () => {
+  const { calls, device } = createDeviceHarness({ sleepy: true });
+  device.tuyaCluster = {};
   const events = [];
   device.waitForTuyaRadioReady = async () => {
     events.push('radio-ready');
@@ -165,8 +167,24 @@ test('end-device announce waits for the Tuya radio before handling wake-up', asy
   device.onDeviceAwake = async () => {
     events.push('wake-handled');
   };
+  device.sendDataQuery = async () => {
+    calls.sendDataQuery += 1;
+    events.push('data-query');
+  };
 
   await ZS301ZDevice.prototype.onEndDeviceAnnounce.call(device);
 
-  assert.deepEqual(events, ['radio-ready', 'wake-handled']);
+  assert.deepEqual(events, ['radio-ready', 'data-query', 'wake-handled']);
+  assert.equal(calls.sendDataQuery, 1);
+});
+
+test('repeated end-device announces query at most once per ten minutes', async () => {
+  const { calls, device } = createDeviceHarness({ sleepy: true });
+  device.tuyaCluster = {};
+  device.lastAnnounceDataQueryAt = Date.now();
+  device.onDeviceAwake = async () => {};
+
+  await ZS301ZDevice.prototype.onEndDeviceAnnounce.call(device);
+
+  assert.equal(calls.sendDataQuery, 0);
 });
