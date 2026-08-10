@@ -37,6 +37,7 @@ function createDeviceHarness({ sleepy }) {
     pendingSettingsApply: false,
     endpoint1: null,
     lastWakeHandledAt: 0,
+    wakeHandling: false,
     tuyaCluster: null,
     log() {},
     error() {},
@@ -61,6 +62,9 @@ function createDeviceHarness({ sleepy }) {
       calls.readBattery += 1;
     },
     async setAvailable() {
+      return undefined;
+    },
+    async waitForTuyaRadioReady() {
       return undefined;
     },
   };
@@ -122,4 +126,41 @@ test('failed wake-up settings sync remains queued for the next wake-up', async (
 
   assert.equal(calls.applyDeviceSettings, 1);
   assert.equal(device.pendingSettingsApply, true);
+});
+
+test('concurrent wake-up handling does not start a second settings sync', async () => {
+  const { calls, device } = createDeviceHarness({ sleepy: true });
+  device.pendingSettingsApply = true;
+
+  let finishSettingsSync;
+  device.applyDeviceSettings = () => {
+    calls.applyDeviceSettings += 1;
+    return new Promise((resolve) => {
+      finishSettingsSync = resolve;
+    });
+  };
+
+  const firstWake = ZS301ZDevice.prototype.onDeviceAwake.call(device);
+  await new Promise((resolve) => setImmediate(resolve));
+  device.lastWakeHandledAt = 0;
+  await ZS301ZDevice.prototype.onDeviceAwake.call(device);
+
+  assert.equal(calls.applyDeviceSettings, 1);
+  finishSettingsSync();
+  await firstWake;
+});
+
+test('end-device announce waits for the Tuya radio before handling wake-up', async () => {
+  const { device } = createDeviceHarness({ sleepy: true });
+  const events = [];
+  device.waitForTuyaRadioReady = async () => {
+    events.push('radio-ready');
+  };
+  device.onDeviceAwake = async () => {
+    events.push('wake-handled');
+  };
+
+  await ZS301ZDevice.prototype.onEndDeviceAnnounce.call(device);
+
+  assert.deepEqual(events, ['radio-ready', 'wake-handled']);
 });

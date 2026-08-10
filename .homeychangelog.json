@@ -9,5 +9,13 @@
   "1.0.2": {
     "en": "Reliably applies the configured reporting interval when battery-powered sensors wake up.",
     "no": "Bruker det konfigurerte rapporteringsintervallet pålitelig når batteridrevne sensorer våkner."
+  },
+  "1.0.3": {
+    "en": "Fixes Tuya settings synchronization for battery-powered sensors that do not send command responses.",
+    "no": "Retter synkronisering av Tuya-innstillinger for batteridrevne sensorer som ikke sender kommandosvar."
+  },
+  "1.0.4": {
+    "en": "Waits for the Tuya radio to become ready before synchronizing settings after wake-up.",
+    "no": "Venter til Tuya-radioen er klar før innstillingene synkroniseres etter oppvåkning."
   }
 }

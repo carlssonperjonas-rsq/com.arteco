@@ -96,7 +96,10 @@ class TuyaSpecificCluster extends Cluster {
       datatype,
       length: data.length,
       data,
-    }, { disableDefaultResponse: true });
+    }, {
+      disableDefaultResponse: true,
+      waitForResponse: false,
+    });
   }
 
   // Helper to send a boolean value

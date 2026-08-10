@@ -21,6 +21,7 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
   private pendingSettingsApply = false;
   private endpoint1: any = null;
   private lastWakeHandledAt = 0;
+  private wakeHandling = false;
 
   async onNodeInit({ zclNode }: { zclNode: any }) {
     this.log('ZS-301Z device initialized');
@@ -379,7 +380,13 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
 
   async onEndDeviceAnnounce(): Promise<void> {
     this.log('Device announced (woke up from sleep)');
+    await this.waitForTuyaRadioReady();
     await this.onDeviceAwake();
+  }
+
+  private async waitForTuyaRadioReady(): Promise<void> {
+    const TUYA_RADIO_READY_DELAY_MS = 2500;
+    await new Promise((resolve) => setTimeout(resolve, TUYA_RADIO_READY_DELAY_MS));
   }
 
   private async configureMagicPacket(zclNode: any): Promise<void> {
@@ -407,6 +414,11 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
   }
 
   private async onDeviceAwake(): Promise<void> {
+    if (this.wakeHandling) {
+      this.log('Skipping wake handling while a previous wake-up is still being processed');
+      return;
+    }
+
     const now = Date.now();
     const DEBOUNCE_MS = 5000;
 
@@ -415,23 +427,28 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
       return;
     }
     this.lastWakeHandledAt = now;
+    this.wakeHandling = true;
 
-    this.log('Handling device wake-up');
-    await this.setAvailable().catch(this.error);
+    try {
+      this.log('Handling device wake-up');
+      await this.setAvailable().catch(this.error);
 
-    if (this.pendingSettingsApply) {
-      this.log('Applying pending user settings...');
-      try {
-        await this.applyDeviceSettings();
-        this.pendingSettingsApply = false;
-        this.log('Pending device settings applied successfully');
-      } catch (err) {
-        this.error('Failed to apply pending device settings; will retry on next wake-up:', err);
+      if (this.pendingSettingsApply) {
+        this.log('Applying pending user settings...');
+        try {
+          await this.applyDeviceSettings();
+          this.pendingSettingsApply = false;
+          this.log('Pending device settings applied successfully');
+        } catch (err) {
+          this.error('Failed to apply pending device settings; will retry on next wake-up:', err);
+        }
       }
-    }
 
-    if (this.endpoint1) {
-      await this.readBattery(this.endpoint1).catch(this.error);
+      if (this.endpoint1) {
+        await this.readBattery(this.endpoint1).catch(this.error);
+      }
+    } finally {
+      this.wakeHandling = false;
     }
   }
 
