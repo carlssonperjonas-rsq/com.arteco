@@ -20,6 +20,7 @@
   "capabilities": [
     "measure_soil_moisture",
     "measure_soil_fertility",
+    "alarm_soil_fertility",
     "measure_temperature",
     "measure_humidity",
     "measure_luminance",
@@ -172,6 +173,25 @@
       "units": {
         "en": "%",
         "no": "%"
+      }
+    },
+    {
+      "id": "soil_fertility_warning",
+      "type": "number",
+      "label": {
+        "en": "Low Fertility Threshold",
+        "no": "Grense for lav jordgjødsling"
+      },
+      "hint": {
+        "en": "EC level below which the fertility alarm triggers on ZS-SF00 sensors (100–5000 µS/cm)",
+        "no": "EC-nivået som utløser alarm for lav jordgjødsling på ZS-SF00-sensorer (100–5000 µS/cm)"
+      },
+      "min": 100,
+      "max": 5000,
+      "value": 100,
+      "units": {
+        "en": "µS/cm",
+        "no": "µS/cm"
       }
     }
   ],

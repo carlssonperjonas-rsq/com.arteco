@@ -8,6 +8,7 @@ const {
   clampIlluminanceCalibration,
   clampSamplingSeconds,
   clampSoilCalibration,
+  clampSoilFertilityWarning,
   clampSoilWarning,
   toTuyaTemperatureCalibrationTenths,
 } = require('../.homeybuild/lib/zs301z');
@@ -59,6 +60,13 @@ test('clampSoilWarning clamps to 0..100', () => {
   assert.equal(clampSoilWarning(100), 100);
   assert.equal(clampSoilWarning(-1), 0);
   assert.equal(clampSoilWarning(999), 100);
+});
+
+test('clampSoilFertilityWarning clamps to 100..5000 µS/cm', () => {
+  assert.equal(clampSoilFertilityWarning(100), 100);
+  assert.equal(clampSoilFertilityWarning(5000), 5000);
+  assert.equal(clampSoilFertilityWarning(1), 100);
+  assert.equal(clampSoilFertilityWarning(9999), 5000);
 });
 
 test('toTuyaTemperatureCalibrationTenths maps °C to tenths with clamp', () => {

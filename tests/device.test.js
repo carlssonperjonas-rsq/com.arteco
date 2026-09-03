@@ -20,6 +20,7 @@ const {
   DP_WRITE_ZS300Z,
   DP_WRITE_ZS301Z,
   getDpWriteMap,
+  isZsSf00Variant,
 } = require('../.homeybuild/lib/zs301zDatapoints');
 
 Module._load = originalLoad;
@@ -38,7 +39,13 @@ test('0ints6wl ZS-300Z writes report interval to DP 103 and calibration to DP 10
   assert.equal(getDpWriteMap('_TZE284_o9ofysmo'), DP_WRITE_ZS301Z);
 });
 
-function createDeviceHarness({ sleepy, firstInit = false, dpSchemaVersion = 2 }) {
+test('A89G12C ZS-SF00 uses the report interval on DP 103 and fertility settings', () => {
+  assert.equal(getDpWriteMap('A89G12C'), DP_WRITE_ZS300Z);
+  assert.equal(isZsSf00Variant('A89G12C'), true);
+  assert.equal(isZsSf00Variant('_TZE2841000000_0ints6wl'), false);
+});
+
+function createDeviceHarness({ sleepy, firstInit = false, dpSchemaVersion = 3 }) {
   const calls = {
     applyDeviceSettings: 0,
     configureMagicPacket: 0,
@@ -338,7 +345,73 @@ test('0ints6wl settings apply the ZS-300Z datapoints and persist the migration',
     [107, 0],
     [110, 30],
   ]);
-  assert.deepEqual(stored, [['zs300z_dp_schema_version', 2]]);
+  assert.deepEqual(stored, [['zs300z_dp_schema_version', 3]]);
+});
+
+test('A89G12C settings use the ZS-SF00 datapoints including fertility threshold DP 114', async () => {
+  const writes = [];
+  const stored = [];
+  const settings = {
+    soil_sampling: 600,
+    soil_calibration: 0,
+    humidity_calibration: 0,
+    illuminance_calibration: 0,
+    temperature_calibration: 0,
+    soil_warning: 30,
+    soil_fertility_warning: 250,
+  };
+  const device = {
+    node: { manufacturerName: 'A89G12C' },
+    tuyaCluster: {
+      async setDatapointValue(dp, value) {
+        writes.push([dp, value]);
+      },
+    },
+    getSetting(key) {
+      return settings[key];
+    },
+    async setStoreValue(key, value) {
+      stored.push([key, value]);
+    },
+    log() {},
+  };
+
+  await ZS301ZDevice.prototype.applyDeviceSettings.call(device);
+
+  assert.deepEqual(writes, [
+    [103, 600],
+    [104, 0],
+    [105, 0],
+    [106, 0],
+    [107, 0],
+    [110, 30],
+    [114, 250],
+  ]);
+  assert.deepEqual(stored, [['zs300z_dp_schema_version', 3]]);
+});
+
+test('DP 112 publishes EC and DP 115 publishes the low-fertility alarm', () => {
+  const values = [];
+  const device = {
+    log() {},
+    error() {},
+    parseDpValue: ZS301ZDevice.prototype.parseDpValue,
+    hasCapability() {
+      return true;
+    },
+    setCapabilityValue(capability, value) {
+      values.push([capability, value]);
+      return Promise.resolve();
+    },
+  };
+
+  ZS301ZDevice.prototype.processDataPoint.call(device, 112, 2, Buffer.from([0, 0, 1, 44]));
+  ZS301ZDevice.prototype.processDataPoint.call(device, 115, 4, Buffer.from([1]));
+
+  assert.deepEqual(values, [
+    ['measure_soil_fertility', 300],
+    ['alarm_soil_fertility', true],
+  ]);
 });
 
 test('gateway connection status response reports the Homey gateway online', async () => {

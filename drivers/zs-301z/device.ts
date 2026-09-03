@@ -11,6 +11,7 @@ import {
   clampIlluminanceCalibration,
   clampSamplingSeconds,
   clampSoilCalibration,
+  clampSoilFertilityWarning,
   clampSoilWarning,
   toTuyaTemperatureCalibrationTenths,
 } from '../../lib/zs301z';
@@ -18,11 +19,12 @@ import {
   DP_HANDLERS,
   DEFAULTS,
   getDpWriteMap,
+  isZsSf00Variant,
   isZs300zVariant,
 } from '../../lib/zs301zDatapoints';
 
 const DP_SCHEMA_STORE_KEY = 'zs300z_dp_schema_version';
-const DP_SCHEMA_VERSION = 2;
+const DP_SCHEMA_VERSION = 3;
 
 module.exports = class ZS301ZDevice extends ZigBeeDevice {
 
@@ -60,6 +62,11 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
     } else if (!supportsSoilFertility && this.hasCapability('measure_soil_fertility')) {
       this.log(`Removing unsupported soil fertility capability for ${manufacturerName}`);
       await this.removeCapability('measure_soil_fertility').catch(this.error);
+    }
+    if (supportsSoilFertility && !this.hasCapability('alarm_soil_fertility')) {
+      await this.addCapability('alarm_soil_fertility').catch(this.error);
+    } else if (!supportsSoilFertility && this.hasCapability('alarm_soil_fertility')) {
+      await this.removeCapability('alarm_soil_fertility').catch(this.error);
     }
 
     const isSleepy = this.isDeviceSleepy();
@@ -137,6 +144,11 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
     );
     const tempCalibration = toTuyaTemperatureCalibrationTenths(this.getSetting('temperature_calibration') ?? DEFAULTS.CALIBRATION);
     const soilWarning = clampSoilWarning(this.getSetting('soil_warning') ?? DEFAULTS.SOIL_WARNING_PERCENT);
+    const soilFertilityWarning = isZsSf00Variant(manufacturerName)
+      ? clampSoilFertilityWarning(
+        this.getSetting('soil_fertility_warning') ?? DEFAULTS.SOIL_FERTILITY_WARNING_US_CM,
+      )
+      : null;
 
     await this.tuyaCluster.setDatapointValue(dpWrite.SOIL_SAMPLING, soilSampling);
     await this.tuyaCluster.setDatapointValue(dpWrite.SOIL_CALIBRATION, soilCalibration);
@@ -144,6 +156,9 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
     await this.tuyaCluster.setDatapointValue(dpWrite.ILLUMINANCE_CALIBRATION, illuminanceCalibration);
     await this.tuyaCluster.setDatapointValue(dpWrite.TEMP_CALIBRATION, tempCalibration);
     await this.tuyaCluster.setDatapointValue(dpWrite.SOIL_WARNING, soilWarning);
+    if (soilFertilityWarning !== null) {
+      await this.tuyaCluster.setDatapointValue(114, soilFertilityWarning);
+    }
 
     if (isZs300zVariant(manufacturerName) && typeof (this as any).setStoreValue === 'function') {
       await (this as any).setStoreValue(DP_SCHEMA_STORE_KEY, DP_SCHEMA_VERSION);
@@ -157,6 +172,7 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
       illuminanceCalibration,
       tempCalibration,
       soilWarning,
+      soilFertilityWarning,
     });
   }
 
@@ -324,12 +340,21 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
 
       case 'soilFertility':
         if (typeof value === 'number') {
-          this.log(`Setting soil fertility to ${value} mg/kg`);
+          this.log(`Setting soil fertility to ${value} µS/cm`);
           if (this.hasCapability('measure_soil_fertility')) {
             this.setCapabilityValue('measure_soil_fertility', value).catch(this.error);
           }
         }
         break;
+
+      case 'soilFertilityWarning': {
+        const alarm = typeof value === 'boolean' ? value : value !== 0;
+        this.log(`Setting soil fertility alarm to ${alarm}`);
+        if (this.hasCapability('alarm_soil_fertility')) {
+          this.setCapabilityValue('alarm_soil_fertility', alarm).catch(this.error);
+        }
+        break;
+      }
 
       case 'waterWarning': {
         let alarm: boolean;
@@ -452,6 +477,12 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
           }
           if (key === 'soil_warning') {
             await this.tuyaCluster.setDatapointValue(dpWrite.SOIL_WARNING, clampSoilWarning(value ?? DEFAULTS.SOIL_WARNING_PERCENT));
+          }
+          if (key === 'soil_fertility_warning' && isZsSf00Variant(manufacturerName)) {
+            await this.tuyaCluster.setDatapointValue(
+              114,
+              clampSoilFertilityWarning(value ?? DEFAULTS.SOIL_FERTILITY_WARNING_US_CM),
+            );
           }
         } catch (err) {
           this.error('Failed to apply setting to device:', err);

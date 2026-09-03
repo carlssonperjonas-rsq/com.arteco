@@ -28,3 +28,7 @@ export function toTuyaTemperatureCalibrationTenths(offsetC: number): number {
 export function clampSoilWarning(percent: number): number {
   return clampInt(percent, 0, 100);
 }
+
+export function clampSoilFertilityWarning(microSiemensPerCm: number): number {
+  return clampInt(microSiemensPerCm, 100, 5000);
+}

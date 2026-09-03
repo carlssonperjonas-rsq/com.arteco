@@ -8,6 +8,7 @@ export type DpHandler =
   | 'illuminance'
   | 'battery'
   | 'waterWarning'
+  | 'soilFertilityWarning'
   | 'setting';
 
 export const DP_HANDLERS: Record<number, { handler: DpHandler; divideBy?: number }> = {
@@ -25,7 +26,7 @@ export const DP_HANDLERS: Record<number, { handler: DpHandler; divideBy?: number
   111: { handler: 'waterWarning' },
   112: { handler: 'soilFertility' },
   114: { handler: 'setting' },   // soil_fertility_warning_setting
-  115: { handler: 'setting' },   // soil_fertility_warning
+  115: { handler: 'soilFertilityWarning' },
 };
 
 export const DP_WRITE_ZS301Z = {
@@ -47,6 +48,8 @@ export const DP_WRITE_ZS300Z = {
 } as const;
 
 const ZS300Z_MANUFACTURERS = new Set([
+  'A89G12C',
+  'Arteco',
   '_TZE284_k7p2q5d9',
   '_TZE284_65gzcss7',
   '_TZE284_0ints6wl',
@@ -54,8 +57,17 @@ const ZS300Z_MANUFACTURERS = new Set([
   '_TZE2841000000_0ints6wl',
 ]);
 
+const ZS_SF00_MANUFACTURERS = new Set([
+  'A89G12C',
+  'Arteco',
+]);
+
 export function isZs300zVariant(manufacturerName?: string): boolean {
   return typeof manufacturerName === 'string' && ZS300Z_MANUFACTURERS.has(manufacturerName);
+}
+
+export function isZsSf00Variant(manufacturerName?: string): boolean {
+  return typeof manufacturerName === 'string' && ZS_SF00_MANUFACTURERS.has(manufacturerName);
 }
 
 export function getDpWriteMap(manufacturerName?: string) {
@@ -69,4 +81,5 @@ export const DEFAULTS = {
   SAMPLING_SECONDS: 600,
   CALIBRATION: 0,
   SOIL_WARNING_PERCENT: 30,
+  SOIL_FERTILITY_WARNING_US_CM: 100,
 } as const;

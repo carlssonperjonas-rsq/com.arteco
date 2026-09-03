@@ -6,7 +6,8 @@
 - **Type**: Homey SDK 3 app for Zigbee devices
 - **Language**: TypeScript (compiles to `.homeybuild/`)
 - **Target**: Homey Pro (local platform only)
-- **Current Device**: ZS-301Z soil sensor (Tuya OEM, manufacturer `A89G12C`, model `Arteco`)
+- **Current Devices**: ZS-300Z (`TS0601` / `_TZE2841000000_0ints6wl`)
+  and ZS-SF00 (`Arteco` / `A89G12C`)
 
 ## Development Commands
 
@@ -177,7 +178,7 @@ Tuya devices use a proprietary protocol on cluster `0xEF00` (61184).
    | 0x04 | ENUM   | 1 byte |
    | 0x05 | BITMAP | variable |
 
-## ZS-301Z / ZS-300Z Datapoints
+## ZS-301Z / ZS-300Z / ZS-SF00 Datapoints
 
 | DP  | Name                       | Type  | Handler        | Notes                       |
 |-----|----------------------------|-------|----------------|-----------------------------|
@@ -198,9 +199,13 @@ The exact `_TZE284*_0ints6wl` family follows Zigbee2MQTT's ZS-300Z/ZS-304Z
 mapping above. The original `_TZE284_o9ofysmo` and `_TZE284_xc3vwx5a`
 ZS-301Z variants use DP 103 for soil calibration and DP 104 for the 30–1200
 second report interval. Always select writable datapoints by manufacturer name.
-| 112 | Soil Fertility             | VALUE | soilFertility  | µS/cm, 0–2000               |
-| 114 | Fertility Warning Setting  | VALUE | setting        | read-only                   |
-| 115 | Fertility Warning          | BOOL  | setting        | read-only                   |
+| 112 | Soil Fertility             | VALUE | soilFertility  | µS/cm, 0–5000               |
+| 114 | Fertility Warning Setting  | VALUE | setting (W)    | 100–5000 µS/cm on ZS-SF00  |
+| 115 | Fertility Warning          | ENUM  | soilFertilityWarning | 0=OK, 1=Alarm         |
+
+`A89G12C` uses the ZS-300Z write layout: DP 103 is the sampling interval and
+DP 104 is soil calibration. It additionally reports EC on DP 112 and its
+fertility alarm on DP 115; the threshold is written to DP 114.
 
 **(W)** = writable via `DP_WRITE` in `zs301zDatapoints.ts`
 
