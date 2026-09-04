@@ -1,0 +1,12 @@
+{
+  "type": "boolean",
+  "title": {
+    "en": "Low Soil Fertility Alarm",
+    "no": "Alarm for lav jordgjødsling"
+  },
+  "icon": "/assets/measure_soil_fertility.svg",
+  "getable": true,
+  "setable": false,
+  "insights": true,
+  "uiComponent": "sensor"
+}

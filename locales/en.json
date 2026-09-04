@@ -7,6 +7,10 @@
     "measure_soil_fertility": {
       "name": "Soil Fertility",
       "title": "Soil Fertility"
+    },
+    "alarm_soil_fertility": {
+      "name": "Low Soil Fertility Alarm",
+      "title": "Low Soil Fertility Alarm"
     }
   },
   "drivers": {
@@ -20,6 +24,10 @@
         "measure_soil_fertility": {
           "name": "Soil Fertility",
           "title": "Soil Fertility"
+        },
+        "alarm_soil_fertility": {
+          "name": "Low Soil Fertility Alarm",
+          "title": "Low Soil Fertility Alarm"
         },
         "measure_temperature": {
           "name": "Temperature",
@@ -57,11 +65,15 @@
         },
         "soil_sampling": {
           "label": "Soil Sampling Interval",
-          "hint": "How often the sensor measures soil moisture (5–3600 seconds). Takes effect on next report."
+          "hint": "How often the sensor reports measurements (30–1200 seconds). Takes effect on next report."
         },
         "soil_warning": {
           "label": "Soil Dryness Threshold",
           "hint": "Moisture percentage below which the water shortage alarm triggers (0–100 %)."
+        },
+        "soil_fertility_warning": {
+          "label": "Low Fertility Threshold",
+          "hint": "EC level below which the fertility alarm triggers on ZS-SF00 sensors (100–5000 µS/cm)."
         }
       }
     }

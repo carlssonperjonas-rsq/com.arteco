@@ -7,6 +7,10 @@
     "measure_soil_fertility": {
       "name": "Jordgjødsling",
       "title": "Jordgjødsling"
+    },
+    "alarm_soil_fertility": {
+      "name": "Alarm for lav jordgjødsling",
+      "title": "Alarm for lav jordgjødsling"
     }
   },
   "drivers": {
@@ -20,6 +24,10 @@
         "measure_soil_fertility": {
           "name": "Jordgjødsling",
           "title": "Jordgjødsling"
+        },
+        "alarm_soil_fertility": {
+          "name": "Alarm for lav jordgjødsling",
+          "title": "Alarm for lav jordgjødsling"
         },
         "measure_temperature": {
           "name": "Temperatur",
@@ -57,11 +65,15 @@
         },
         "soil_sampling": {
           "label": "Jordmålingsintervall",
-          "hint": "Hvor ofte sensoren måler jordfuktighet (5–3600 sekunder). Trer i kraft ved neste rapport."
+          "hint": "Hvor ofte sensoren rapporterer målinger (30–1200 sekunder). Trer i kraft ved neste rapport."
         },
         "soil_warning": {
           "label": "Tørkegrense for jord",
           "hint": "Fuktighetsnivå under hvilken tørkealarm utløses (0–100 %)."
+        },
+        "soil_fertility_warning": {
+          "label": "Grense for lav jordgjødsling",
+          "hint": "EC-nivået som utløser alarm for lav jordgjødsling på ZS-SF00-sensorer (100–5000 µS/cm)."
         }
       }
     }

@@ -3,17 +3,28 @@
 import { ZigBeeDevice } from 'homey-zigbeedriver';
 import { CLUSTER } from 'zigbee-clusters';
 
-import { TuyaDataTypes, TUYA_CLUSTER_ID } from '../../lib/TuyaCluster';
+import { TuyaDataTypes, TUYA_CLUSTER_ID, TUYA_CMD } from '../../lib/TuyaCluster';
 import { decodeTuyaDpValuesFromZclFrame } from '../../lib/tuyaFrame';
 import { clampPercent, rawTemperatureTimes10ToCelsius } from '../../lib/utils';
 import {
   clampHumidityCalibration,
+  clampIlluminanceCalibration,
   clampSamplingSeconds,
   clampSoilCalibration,
+  clampSoilFertilityWarning,
   clampSoilWarning,
   toTuyaTemperatureCalibrationTenths,
 } from '../../lib/zs301z';
-import { DP_HANDLERS, DP_WRITE, DEFAULTS } from '../../lib/zs301zDatapoints';
+import {
+  DP_HANDLERS,
+  DEFAULTS,
+  getDpWriteMap,
+  isZsSf00Variant,
+  isZs300zVariant,
+} from '../../lib/zs301zDatapoints';
+
+const DP_SCHEMA_STORE_KEY = 'zs300z_dp_schema_version';
+const DP_SCHEMA_VERSION = 3;
 
 module.exports = class ZS301ZDevice extends ZigBeeDevice {
 
@@ -21,6 +32,9 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
   private pendingSettingsApply = false;
   private endpoint1: any = null;
   private lastWakeHandledAt = 0;
+  private lastAnnounceDataQueryAt = 0;
+  private wakeHandling = false;
+  private pendingMagicPacket = false;
 
   async onNodeInit({ zclNode }: { zclNode: any }) {
     this.log('ZS-301Z device initialized');
@@ -37,15 +51,44 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
     }
     this.endpoint1 = endpoint;
 
-    if (!this.hasCapability('measure_soil_fertility')) {
+    const manufacturerName = (this as any).node?.manufacturerName;
+    const supportsSoilFertility = ![
+      '_TZE284_0ints6wl',
+      '_TZE2841000000_0ints6wl',
+    ].includes(manufacturerName);
+
+    if (supportsSoilFertility && !this.hasCapability('measure_soil_fertility')) {
       await this.addCapability('measure_soil_fertility').catch(this.error);
+    } else if (!supportsSoilFertility && this.hasCapability('measure_soil_fertility')) {
+      this.log(`Removing unsupported soil fertility capability for ${manufacturerName}`);
+      await this.removeCapability('measure_soil_fertility').catch(this.error);
+    }
+    if (supportsSoilFertility && !this.hasCapability('alarm_soil_fertility')) {
+      await this.addCapability('alarm_soil_fertility').catch(this.error);
+    } else if (!supportsSoilFertility && this.hasCapability('alarm_soil_fertility')) {
+      await this.removeCapability('alarm_soil_fertility').catch(this.error);
     }
 
     const isSleepy = this.isDeviceSleepy();
-    this.log(`Device is ${isSleepy ? 'sleepy (battery-powered)' : 'always-on'}`);
-
     const isFirstInit = typeof (this as any).isFirstInit === 'function' ? (this as any).isFirstInit() : false;
-    if (isFirstInit) {
+    const storedDpSchemaVersion = typeof (this as any).getStoreValue === 'function'
+      ? (this as any).getStoreValue(DP_SCHEMA_STORE_KEY)
+      : DP_SCHEMA_VERSION;
+    const needsDpSchemaMigration = isZs300zVariant(manufacturerName)
+      && storedDpSchemaVersion !== DP_SCHEMA_VERSION;
+    this.log(`Device is ${isSleepy ? 'sleepy (battery-powered)' : 'always-on'}`);
+    if (isSleepy) {
+      this.pendingSettingsApply = isFirstInit || needsDpSchemaMigration;
+      this.pendingMagicPacket = true;
+      if (this.pendingSettingsApply) {
+        this.log('Device settings will be synchronized on the next wake-up');
+      }
+      if (needsDpSchemaMigration) {
+        this.log(`Queuing corrected ZS-300Z datapoint settings for ${manufacturerName}`);
+      }
+    }
+
+    if (isFirstInit && !isSleepy) {
       this.log('First init - sending Tuya magic packet');
       await this.configureMagicPacket(zclNode).catch(this.error);
     }
@@ -71,6 +114,10 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
 
     this.registerRawReportHandler(zclNode);
 
+    if (this.tuyaCluster && !isSleepy) {
+      await this.sendDataQuery().catch(this.error);
+    }
+
     if (isSleepy) {
       this.log('Device is sleepy - will apply settings and read battery when device wakes up');
     } else {
@@ -84,19 +131,49 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
   private async applyDeviceSettings(): Promise<void> {
     if (!this.tuyaCluster) return;
 
-    const soilSampling = clampSamplingSeconds(this.getSetting('soil_sampling') ?? DEFAULTS.SAMPLING_SECONDS);
+    const manufacturerName = (this as any).node?.manufacturerName;
+    const dpWrite = getDpWriteMap(manufacturerName);
+    const soilSampling = clampSamplingSeconds(
+      this.getSetting('soil_sampling') ?? DEFAULTS.SAMPLING_SECONDS,
+      manufacturerName,
+    );
     const soilCalibration = clampSoilCalibration(this.getSetting('soil_calibration') ?? DEFAULTS.CALIBRATION);
     const humidityCalibration = clampHumidityCalibration(this.getSetting('humidity_calibration') ?? DEFAULTS.CALIBRATION);
+    const illuminanceCalibration = clampIlluminanceCalibration(
+      this.getSetting('illuminance_calibration') ?? DEFAULTS.CALIBRATION,
+    );
     const tempCalibration = toTuyaTemperatureCalibrationTenths(this.getSetting('temperature_calibration') ?? DEFAULTS.CALIBRATION);
     const soilWarning = clampSoilWarning(this.getSetting('soil_warning') ?? DEFAULTS.SOIL_WARNING_PERCENT);
+    const soilFertilityWarning = isZsSf00Variant(manufacturerName)
+      ? clampSoilFertilityWarning(
+        this.getSetting('soil_fertility_warning') ?? DEFAULTS.SOIL_FERTILITY_WARNING_US_CM,
+      )
+      : null;
 
-    await this.tuyaCluster.setDatapointValue(DP_WRITE.SOIL_SAMPLING, soilSampling);
-    await this.tuyaCluster.setDatapointValue(DP_WRITE.SOIL_CALIBRATION, soilCalibration);
-    await this.tuyaCluster.setDatapointValue(DP_WRITE.HUMIDITY_CALIBRATION, humidityCalibration);
-    await this.tuyaCluster.setDatapointValue(DP_WRITE.TEMP_CALIBRATION, tempCalibration);
-    await this.tuyaCluster.setDatapointValue(DP_WRITE.SOIL_WARNING, soilWarning);
+    await this.tuyaCluster.setDatapointValue(dpWrite.SOIL_SAMPLING, soilSampling);
+    await this.tuyaCluster.setDatapointValue(dpWrite.SOIL_CALIBRATION, soilCalibration);
+    await this.tuyaCluster.setDatapointValue(dpWrite.HUMIDITY_CALIBRATION, humidityCalibration);
+    await this.tuyaCluster.setDatapointValue(dpWrite.ILLUMINANCE_CALIBRATION, illuminanceCalibration);
+    await this.tuyaCluster.setDatapointValue(dpWrite.TEMP_CALIBRATION, tempCalibration);
+    await this.tuyaCluster.setDatapointValue(dpWrite.SOIL_WARNING, soilWarning);
+    if (soilFertilityWarning !== null) {
+      await this.tuyaCluster.setDatapointValue(114, soilFertilityWarning);
+    }
 
-    this.log('Applied device settings', { soilSampling, soilCalibration, humidityCalibration, tempCalibration, soilWarning });
+    if (isZs300zVariant(manufacturerName) && typeof (this as any).setStoreValue === 'function') {
+      await (this as any).setStoreValue(DP_SCHEMA_STORE_KEY, DP_SCHEMA_VERSION);
+    }
+
+    this.log('Applied device settings', {
+      manufacturerName,
+      soilSampling,
+      soilCalibration,
+      humidityCalibration,
+      illuminanceCalibration,
+      tempCalibration,
+      soilWarning,
+      soilFertilityWarning,
+    });
   }
 
   private setupTuyaListeners() {
@@ -129,7 +206,6 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
           this.log('Raw Tuya frame received, cluster:', clusterId);
           this.log('Frame data:', frame.toString('hex'));
           this.parseRawTuyaFrame(frame);
-          this.onDeviceAwake().catch(this.error);
         }
         return originalHandleFrame(clusterId, frame, meta);
       };
@@ -140,6 +216,12 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
   private parseRawTuyaFrame(frame: Buffer) {
     try {
       const decoded = decodeTuyaDpValuesFromZclFrame(frame);
+      if (decoded.commandId === TUYA_CMD.MCU_GATEWAY_CONNECTION_STATUS) {
+        this.respondToGatewayConnectionStatus().catch(this.error);
+      }
+      if (this.pendingSettingsApply) {
+        this.applyPendingSettingsFromRawFrame().catch(this.error);
+      }
       if (decoded.dpValues.length === 0) return;
 
       this.log(
@@ -243,6 +325,11 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
 
       case 'battery':
         if (typeof value === 'number') {
+          if (datatype === TuyaDataTypes.ENUM) {
+            const batteryState = ['low', 'middle', 'high'][value] ?? `unknown (${value})`;
+            this.log(`Battery state from Tuya DP 14: ${batteryState}; keeping percentage from PowerConfiguration`);
+            break;
+          }
           const battery = clampPercent(value);
           this.log(`Setting battery to ${battery}%`);
           if (this.hasCapability('measure_battery')) {
@@ -253,12 +340,21 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
 
       case 'soilFertility':
         if (typeof value === 'number') {
-          this.log(`Setting soil fertility to ${value} mg/kg`);
+          this.log(`Setting soil fertility to ${value} µS/cm`);
           if (this.hasCapability('measure_soil_fertility')) {
             this.setCapabilityValue('measure_soil_fertility', value).catch(this.error);
           }
         }
         break;
+
+      case 'soilFertilityWarning': {
+        const alarm = typeof value === 'boolean' ? value : value !== 0;
+        this.log(`Setting soil fertility alarm to ${alarm}`);
+        if (this.hasCapability('alarm_soil_fertility')) {
+          this.setCapabilityValue('alarm_soil_fertility', alarm).catch(this.error);
+        }
+        break;
+      }
 
       case 'waterWarning': {
         let alarm: boolean;
@@ -301,6 +397,45 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
     }
   }
 
+  private async sendDataQuery(): Promise<void> {
+    if (!this.tuyaCluster) return;
+
+    this.log('Sending Tuya dataQuery for current datapoint values');
+    await this.tuyaCluster.sendFrame({
+      frameControl: ['clusterSpecific', 'disableDefaultResponse'],
+      cmdId: TUYA_CMD.DATA_QUERY,
+      data: Buffer.alloc(0),
+    });
+    this.log('Sent Tuya dataQuery');
+  }
+
+  private async respondToGatewayConnectionStatus(): Promise<void> {
+    if (!this.tuyaCluster) return;
+
+    this.log('Responding to Tuya MCU gateway connection status request');
+    await this.tuyaCluster.sendFrame({
+      frameControl: ['clusterSpecific', 'disableDefaultResponse'],
+      cmdId: TUYA_CMD.MCU_GATEWAY_CONNECTION_STATUS,
+      data: Buffer.from([0x00, 0x01, 0x01]),
+    });
+  }
+
+  private async applyPendingSettingsFromRawFrame(): Promise<void> {
+    if (!this.pendingSettingsApply || this.wakeHandling) return;
+
+    this.wakeHandling = true;
+    try {
+      this.log('Tuya frame confirms the sleepy device is awake; applying pending settings immediately');
+      await this.applyDeviceSettings();
+      this.pendingSettingsApply = false;
+      this.log('Pending device settings applied from the active Tuya receive window');
+    } catch (error) {
+      this.error('Failed to apply pending settings from Tuya frame; will retry on next wake-up:', error);
+    } finally {
+      this.wakeHandling = false;
+    }
+  }
+
   async onSettings({ oldSettings, newSettings, changedKeys }: {
     oldSettings: Record<string, any>;
     newSettings: Record<string, any>;
@@ -309,6 +444,8 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
     this.log('Settings changed:', changedKeys);
 
     const isSleepy = this.isDeviceSleepy();
+    const manufacturerName = (this as any).node?.manufacturerName;
+    const dpWrite = getDpWriteMap(manufacturerName);
 
     if (isSleepy) {
       this.log('Device is sleepy - queueing settings for next wake-up');
@@ -318,19 +455,34 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
         const value = newSettings[key];
         try {
           if (key === 'soil_sampling') {
-            await this.tuyaCluster.setDatapointValue(DP_WRITE.SOIL_SAMPLING, clampSamplingSeconds(value ?? DEFAULTS.SAMPLING_SECONDS));
+            await this.tuyaCluster.setDatapointValue(
+              dpWrite.SOIL_SAMPLING,
+              clampSamplingSeconds(value ?? DEFAULTS.SAMPLING_SECONDS, manufacturerName),
+            );
           }
           if (key === 'soil_calibration') {
-            await this.tuyaCluster.setDatapointValue(DP_WRITE.SOIL_CALIBRATION, clampSoilCalibration(value ?? DEFAULTS.CALIBRATION));
+            await this.tuyaCluster.setDatapointValue(dpWrite.SOIL_CALIBRATION, clampSoilCalibration(value ?? DEFAULTS.CALIBRATION));
           }
           if (key === 'humidity_calibration') {
-            await this.tuyaCluster.setDatapointValue(DP_WRITE.HUMIDITY_CALIBRATION, clampHumidityCalibration(value ?? DEFAULTS.CALIBRATION));
+            await this.tuyaCluster.setDatapointValue(dpWrite.HUMIDITY_CALIBRATION, clampHumidityCalibration(value ?? DEFAULTS.CALIBRATION));
+          }
+          if (key === 'illuminance_calibration') {
+            await this.tuyaCluster.setDatapointValue(
+              dpWrite.ILLUMINANCE_CALIBRATION,
+              clampIlluminanceCalibration(value ?? DEFAULTS.CALIBRATION),
+            );
           }
           if (key === 'temperature_calibration') {
-            await this.tuyaCluster.setDatapointValue(DP_WRITE.TEMP_CALIBRATION, toTuyaTemperatureCalibrationTenths(value ?? DEFAULTS.CALIBRATION));
+            await this.tuyaCluster.setDatapointValue(dpWrite.TEMP_CALIBRATION, toTuyaTemperatureCalibrationTenths(value ?? DEFAULTS.CALIBRATION));
           }
           if (key === 'soil_warning') {
-            await this.tuyaCluster.setDatapointValue(DP_WRITE.SOIL_WARNING, clampSoilWarning(value ?? DEFAULTS.SOIL_WARNING_PERCENT));
+            await this.tuyaCluster.setDatapointValue(dpWrite.SOIL_WARNING, clampSoilWarning(value ?? DEFAULTS.SOIL_WARNING_PERCENT));
+          }
+          if (key === 'soil_fertility_warning' && isZsSf00Variant(manufacturerName)) {
+            await this.tuyaCluster.setDatapointValue(
+              114,
+              clampSoilFertilityWarning(value ?? DEFAULTS.SOIL_FERTILITY_WARNING_US_CM),
+            );
           }
         } catch (err) {
           this.error('Failed to apply setting to device:', err);
@@ -345,7 +497,36 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
 
   async onEndDeviceAnnounce(): Promise<void> {
     this.log('Device announced (woke up from sleep)');
-    await this.onDeviceAwake();
+    const hadPendingSettings = this.pendingSettingsApply;
+    if (hadPendingSettings) {
+      this.log('Prioritizing pending settings while the Tuya radio is awake');
+      await this.onDeviceAwake();
+    }
+
+    const now = Date.now();
+    const DATA_QUERY_COOLDOWN_MS = 10 * 60 * 1000;
+    if (this.tuyaCluster && now - this.lastAnnounceDataQueryAt >= DATA_QUERY_COOLDOWN_MS) {
+      this.lastAnnounceDataQueryAt = now;
+      try {
+        await this.sendDataQuery();
+      } catch (error) {
+        this.error('Failed to query current datapoints after device announce:', error);
+      }
+    }
+
+    if (this.pendingMagicPacket) {
+      try {
+        await this.configureMagicPacket({ endpoints: { 1: this.endpoint1 } });
+        this.pendingMagicPacket = false;
+        this.log('Tuya magic packet sent successfully while device was awake');
+      } catch (error) {
+        this.error('Failed to send Tuya magic packet; will retry on next wake-up:', error);
+      }
+    }
+
+    if (!hadPendingSettings) {
+      await this.onDeviceAwake();
+    }
   }
 
   private async configureMagicPacket(zclNode: any): Promise<void> {
@@ -353,19 +534,30 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
     const candidates = endpoints.filter((e) => e?.clusters?.[CLUSTER.BASIC.NAME]);
     for (const endpoint of candidates) {
       try {
-        await endpoint.clusters[CLUSTER.BASIC.NAME].readAttributes([
-          'manufacturerName',
-          'zclVersion',
-          'appVersion',
-          'modelId',
-          'powerSource',
-        ]);
-        this.log('Sent Tuya configureMagicPacket readAttributes');
+        const attributeIds = [
+          0x0004, // manufacturerName
+          0x0000, // zclVersion
+          0x0001, // appVersion
+          0x0005, // modelId
+          0x0007, // powerSource
+          0xfffe, // Tuya-specific initialization attribute
+        ];
+        const payload = Buffer.alloc(attributeIds.length * 2);
+        attributeIds.forEach((attributeId, index) => {
+          payload.writeUInt16LE(attributeId, index * 2);
+        });
+        await endpoint.clusters[CLUSTER.BASIC.NAME].sendFrame({
+          frameControl: [],
+          cmdId: 0x00,
+          data: payload,
+        });
+        this.log('Sent Tuya configureMagicPacket including attribute 0xFFFE');
         return;
       } catch (err) {
-        this.log('Tuya configureMagicPacket readAttributes failed on endpoint, trying next:', err);
+        this.log('Tuya configureMagicPacket failed on endpoint, trying next:', err);
       }
     }
+    throw new Error('No Basic cluster accepted the Tuya magic packet');
   }
 
   private isDeviceSleepy(): boolean {
@@ -373,6 +565,11 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
   }
 
   private async onDeviceAwake(): Promise<void> {
+    if (this.wakeHandling) {
+      this.log('Skipping wake handling while a previous wake-up is still being processed');
+      return;
+    }
+
     const now = Date.now();
     const DEBOUNCE_MS = 5000;
 
@@ -381,18 +578,28 @@ module.exports = class ZS301ZDevice extends ZigBeeDevice {
       return;
     }
     this.lastWakeHandledAt = now;
+    this.wakeHandling = true;
 
-    this.log('Handling device wake-up');
-    await this.setAvailable().catch(this.error);
+    try {
+      this.log('Handling device wake-up');
+      await this.setAvailable().catch(this.error);
 
-    if (this.pendingSettingsApply) {
-      this.log('Applying pending user settings...');
-      await this.applyDeviceSettings().catch(this.error);
-      this.pendingSettingsApply = false;
-    }
+      if (this.pendingSettingsApply) {
+        this.log('Applying pending user settings...');
+        try {
+          await this.applyDeviceSettings();
+          this.pendingSettingsApply = false;
+          this.log('Pending device settings applied successfully');
+        } catch (err) {
+          this.error('Failed to apply pending device settings; will retry on next wake-up:', err);
+        }
+      }
 
-    if (this.endpoint1) {
-      await this.readBattery(this.endpoint1).catch(this.error);
+      if (this.endpoint1) {
+        await this.readBattery(this.endpoint1).catch(this.error);
+      }
+    } finally {
+      this.wakeHandling = false;
     }
   }
 

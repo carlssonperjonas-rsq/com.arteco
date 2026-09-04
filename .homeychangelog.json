@@ -5,5 +5,41 @@
   "1.0.1": {
     "en": "Fixed wateralarm",
     "no": "Fikset vannalarmen"
+  },
+  "1.0.2": {
+    "en": "Reliably applies the configured reporting interval when battery-powered sensors wake up.",
+    "no": "Bruker det konfigurerte rapporteringsintervallet pålitelig når batteridrevne sensorer våkner."
+  },
+  "1.0.3": {
+    "en": "Fixes Tuya settings synchronization for battery-powered sensors that do not send command responses.",
+    "no": "Retter synkronisering av Tuya-innstillinger for batteridrevne sensorer som ikke sender kommandosvar."
+  },
+  "1.0.4": {
+    "en": "Waits for the Tuya radio to become ready before synchronizing settings after wake-up.",
+    "no": "Venter til Tuya-radioen er klar før innstillingene synkroniseres etter oppvåkning."
+  },
+  "1.0.5": {
+    "en": "Corrects the soil calibration and reporting interval datapoints for reliable periodic updates.",
+    "no": "Retter datapunktene for jordkalibrering og rapporteringsintervall for pålitelige periodiske oppdateringer."
+  },
+  "1.0.6": {
+    "en": "Queries current sensor values on wake-up with a battery-friendly ten-minute cooldown.",
+    "no": "Henter aktuelle sensorverdier ved oppvåkning med en batterivennlig sperre på ti minutter."
+  },
+  "1.0.7": {
+    "en": "Adds one delayed follow-up query per wake cycle for climate and light datapoints.",
+    "no": "Legger til én forsinket oppfølgingsforespørsel per oppvåkningssyklus for klima- og lysverdier."
+  },
+  "1.0.8": {
+    "en": "Queries sleepy sensors immediately on announce and sends the complete Tuya initialization packet including attribute 0xFFFE.",
+    "no": "Henter data fra sovende sensorer umiddelbart ved oppvåkning og sender hele Tuya-initialiseringspakken med attributt 0xFFFE."
+  },
+  "1.0.9": {
+    "en": "Corrects the ZS-300Z/ZS-304Z datapoint map for 0ints6wl, adds illuminance calibration, and answers Tuya gateway status requests.",
+    "no": "Retter ZS-300Z/ZS-304Z-datapunktkartet for 0ints6wl, legger til lysstyrkekalibrering og svarer på Tuya-forespørsler om gatewaystatus."
+  },
+  "1.0.10": {
+    "en": "Prioritizes the corrected sampling datapoint as the first command during a sleepy sensor wake-up.",
+    "no": "Prioriterer det korrigerte datapunktet for måleintervall som første kommando når en sovende sensor våkner."
   }
 }

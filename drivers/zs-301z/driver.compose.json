@@ -20,6 +20,7 @@
   "capabilities": [
     "measure_soil_moisture",
     "measure_soil_fertility",
+    "alarm_soil_fertility",
     "measure_temperature",
     "measure_humidity",
     "measure_luminance",
@@ -51,7 +52,9 @@
       "A89G12C",
       "Arteco",
       "_TZE284_o9ofysmo",
-      "_TZE284_xc3vwx5a"
+      "_TZE284_xc3vwx5a",
+      "_TZE284_0ints6wl",
+      "_TZE2841000000_0ints6wl"
     ],
     "productId": [
       "Arteco",
@@ -123,8 +126,8 @@
         "no": "Jordmålingsintervall"
       },
       "hint": {
-        "en": "How often the sensor measures soil moisture (5-3600 seconds)",
-        "no": "Hvor ofte sensoren måler jordfuktighet (5–3600 sekunder)"
+        "en": "How often the sensor reports measurements (5-3600 seconds on ZS-300Z/ZS-304Z)",
+        "no": "Hvor ofte sensoren rapporterer målinger (5–3600 sekunder på ZS-300Z/ZS-304Z)"
       },
       "min": 5,
       "max": 3600,
@@ -132,6 +135,25 @@
       "units": {
         "en": "seconds",
         "no": "sekunder"
+      }
+    },
+    {
+      "id": "illuminance_calibration",
+      "type": "number",
+      "label": {
+        "en": "Illuminance Calibration",
+        "no": "Lysstyrkekalibrering"
+      },
+      "hint": {
+        "en": "Offset to adjust illuminance readings (-1000 to +1000 lx)",
+        "no": "Avvik for å justere lysstyrkeavlesning (-1000 til +1000 lx)"
+      },
+      "min": -1000,
+      "max": 1000,
+      "value": 0,
+      "units": {
+        "en": "lx",
+        "no": "lx"
       }
     },
     {
@@ -151,6 +173,25 @@
       "units": {
         "en": "%",
         "no": "%"
+      }
+    },
+    {
+      "id": "soil_fertility_warning",
+      "type": "number",
+      "label": {
+        "en": "Low Fertility Threshold",
+        "no": "Grense for lav jordgjødsling"
+      },
+      "hint": {
+        "en": "EC level below which the fertility alarm triggers on ZS-SF00 sensors (100–5000 µS/cm)",
+        "no": "EC-nivået som utløser alarm for lav jordgjødsling på ZS-SF00-sensorer (100–5000 µS/cm)"
+      },
+      "min": 100,
+      "max": 5000,
+      "value": 100,
+      "units": {
+        "en": "µS/cm",
+        "no": "µS/cm"
       }
     }
   ],
